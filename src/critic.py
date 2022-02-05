@@ -36,7 +36,7 @@ class LMCritic:
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)).view(bs, seq_len - 1)
         loss = (loss * shift_mask).sum(dim=1)  # [bsize, ]
 
-        return loss
+        return -loss
 
     @torch.inference_mode()
     def __get_probability(self, sentences: List[str]) -> torch.Tensor:
@@ -67,7 +67,7 @@ class LMCritic:
             orig_sent, max_n_samples=n_samples // 2
         )
 
-        if verbose > 1:
+        if verbose:
             print("#sent_perturbations (char-level)", len(sent_perturbations_c))
             print("#sent_perturbations (word-level)", len(sent_perturbations_w))
         sents = [orig_sent] + list(sent_perturbations_c.union(sent_perturbations_w))

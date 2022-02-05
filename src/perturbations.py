@@ -111,7 +111,7 @@ class WordLevelPerturbator:
         for x in range(count):
             perturb_probs = [0.30, 0.30, 0.30, 0.10]
             perturb_fun = npchoice([self._insert, self._mod_verb, self._replace, self._delete], p=perturb_probs)
-            sentence = perturb_fun(sentence.split())
+            sentence = perturb_fun(sentence)
         return sentence
 
     def get_local_neighbors_word_level(self, sent_toked, max_n_samples=500):
