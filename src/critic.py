@@ -5,7 +5,7 @@ from typing import List
 from torch.nn import CrossEntropyLoss
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
-from src.perturbations import WordLevelPerturbator
+from src.perturbations import WordLevelPerturbator, CharLevelPerturbator
 from src.tokenizer import TextPreprocessor
 
 
@@ -23,13 +23,14 @@ class LMCritic:
         self.preprocessor = TextPreprocessor()
 
         self.word_level_perturbator = WordLevelPerturbator()
+        self.char_level_perturbator = CharLevelPerturbator()
 
     def __calc_loss(self, logits: torch.Tensor, attention_mask: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
         shift_mask = attention_mask[..., 1:].contiguous()
 
-        loss_fct = CrossEntropyLoss(reduction='none')
+        loss_fct = CrossEntropyLoss(reduction="none")
         bs, seq_len = labels.size()
 
         loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)).view(bs, seq_len - 1)
@@ -47,13 +48,24 @@ class LMCritic:
 
         return loss
 
-    def evaluate_sentence(self, sentence: str, preprocess_method: str = "gec", n_samples: int = 500, verbose: bool = False, return_counter_example: bool = False):
+    def evaluate_sentence(
+        self,
+        sentence: str,
+        preprocess_method: str = "gec",
+        n_samples: int = 500,
+        verbose: bool = False,
+        return_counter_example: bool = False,
+    ):
         assert preprocess_method == "gec" or preprocess_method == "bea19", "Unknown preprocessing method: {}"
 
         sentence_tokenized = self.preprocessor.preprocess(sentence, preprocess_method == "bea19")
 
-        sent_perturbations_w, orig_sent = self.word_level_perturbator.get_local_neighbors_word_level(sentence_tokenized, max_n_samples=n_samples // 2)
-        sent_perturbations_c = get_local_neighbors_char_level(orig_sent, max_n_samples=n_samples // 2)
+        sent_perturbations_w, orig_sent = self.word_level_perturbator.get_local_neighbors_word_level(
+            sentence_tokenized, max_n_samples=n_samples // 2
+        )
+        sent_perturbations_c = self.char_level_perturbator.get_local_neighbors_char_level(
+            orig_sent, max_n_samples=n_samples // 2
+        )
 
         if verbose > 1:
             print("#sent_perturbations (char-level)", len(sent_perturbations_c))
@@ -63,7 +75,7 @@ class LMCritic:
 
         if logps is None:
             if verbose:
-                print('Invalid input. Maybe the sentence is too long.')
+                print("Invalid input. Maybe the sentence is too long.")
             return None
 
         best_idx = logps.argmax().item()

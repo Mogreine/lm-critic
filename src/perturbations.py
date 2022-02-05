@@ -1,20 +1,25 @@
+import json
 import os
 import math
 import pickle
 import random
+import re
+from collections import Counter
 from typing import List
 
 import editdistance
+import numpy as np
 from numpy.random import choice as npchoice
-from collections import defaultdict
+from random import sample
 
 from definitions import ROOT_PATH
+from src.edit_dist_utils import get_all_edit_dist_one
 from src.tokenizer import TextPostprocessor
 
-VERBS = pickle.load(open(f"{ROOT_PATH}/verbs.p", "rb"))
-COMMON_INSERTS = set(pickle.load(open(f"{ROOT_PATH}/common_inserts.p", "rb")))  # common inserts *to fix a sent*
-COMMON_DELETES = pickle.load(open(f"{ROOT_PATH}/common_deletes.p", "rb"))  # common deletes *to fix a sent*
-_COMMON_REPLACES = pickle.load(open(f"{ROOT_PATH}/common_replaces.p", "rb"))  # common replacements *to error a sent*
+VERBS = pickle.load(open(f"{ROOT_PATH}/artifacts/verbs.p", "rb"))
+COMMON_INSERTS = set(pickle.load(open(f"{ROOT_PATH}/artifacts/common_inserts.p", "rb")))  # common inserts *to fix a sent*
+COMMON_DELETES = pickle.load(open(f"{ROOT_PATH}/artifacts/common_deletes.p", "rb"))  # common deletes *to fix a sent*
+_COMMON_REPLACES = pickle.load(open(f"{ROOT_PATH}/artifacts/common_replaces.p", "rb"))  # common replacements *to error a sent*
 
 
 COMMON_REPLACES = {}
@@ -124,3 +129,99 @@ class WordLevelPerturbator:
                 break
         assert len(sent_perturbations) <= max_n_samples
         return sent_perturbations, original_sentence_detokenized
+
+
+class CharLevelPerturbator:
+    def __init__(self, attack_type='ed1'):
+        self.cache = {}  # {word: {0: set(), 1: set(),.. }, ..} #0=swap, 1=substitute, 2=delete, 3=insert
+        self.n_types = 5
+        self.attack_type = attack_type
+        self.common_typo = json.load(open(f"{ROOT_PATH}/artifacts/common_typo.json"))
+
+    def __tokenize(self, sent):
+        toks = []
+        word_idxs = []
+        for idx, match in enumerate(re.finditer(r'([a-zA-Z]+)|([0-9]+)|.', sent)):
+            tok = match.group(0)
+            toks.append(tok)
+            if len(tok) > 2 and tok.isalpha() and (tok[0].islower()):
+                word_idxs.append(idx)
+        return toks, word_idxs
+
+    def __detokenize(self, toks):
+        return ''.join(toks)
+
+    def sample_perturbations(self, word, n_samples, types):
+        if types is None:
+            type_list = list(range(4)) * (n_samples // 4) + list(
+                np.random.choice(self.n_types, n_samples % self.n_types, replace=False))
+        else:
+            type_list = [sample(types, 1)[0] for _ in range(n_samples)]
+        type_count = Counter(type_list)
+        perturbations = set()
+        for type in type_count:
+            if type not in self.cache[word]:
+                continue
+            if len(self.cache[word][type]) >= type_count[type]:
+                perturbations.update(set(sample(self.cache[word][type], type_count[type])))
+            else:
+                perturbations.update(self.cache[word][type])
+        return perturbations
+
+    #
+    def get_perturbations(self, word, n_samples, types=None):
+        if word not in self.cache:
+            self.cache[word] = {}
+            if word[0].islower():
+                for type in range(4):
+                    self.cache[word][type] = get_all_edit_dist_one(word, 10 ** type)
+                if word in self.common_typo:
+                    self.cache[word][4] = set(self.common_typo[word])
+            elif word[0].isupper():
+                if word in self.common_typo:
+                    self.cache[word][4] = set(self.common_typo[word])
+        if self.attack_type == 'ed1':
+            perturbations = self.sample_perturbations(word, n_samples, types)
+        else:
+            raise NotImplementedError("Attack type: {} not implemented yet".format(self.attack_type))
+        return perturbations
+
+    #
+    def name(self):
+        return 'RandomPerturbationAttack'
+
+    def get_local_neighbors_char_level(self, sent, max_n_samples=500) -> set:
+        words, word_idxs = self.__tokenize(sent)
+        n_samples = min(len(word_idxs) * 20, max_n_samples)
+        sent_perturbations = set()
+        if len(word_idxs) == 0:
+            return sent_perturbations
+        for _ in range(500):
+            word_idx = sample(word_idxs, 1)[0]
+            words_cp = words[:]
+            word_perturbations = list(self.get_perturbations(words_cp[word_idx], n_samples=1))
+            if len(word_perturbations) > 0:
+                words_cp[word_idx] = word_perturbations[0]
+                sent_perturbed = self.__detokenize(words_cp)
+                if sent_perturbed != sent:
+                    sent_perturbations.add(sent_perturbed)
+            if len(sent_perturbations) == n_samples:
+                break
+        # Adding common typos such as 's'
+        for word_idx in word_idxs:
+            words_cp = words[:]
+            word = words_cp[word_idx]
+            if len(word) > 2 and word[0].islower():
+                words_cp[word_idx] = word + 's'
+                sent_perturbed = self.__detokenize(words_cp)
+                if sent_perturbed != sent:
+                    sent_perturbations.add(sent_perturbed)
+                words_cp[word_idx] = word[:-1]
+                sent_perturbed = self.__detokenize(words_cp)
+                if sent_perturbed != sent:
+                    sent_perturbations.add(sent_perturbed)
+        if len(sent_perturbations) > max_n_samples:
+            sent_perturbations = list(sent_perturbations)
+            np.random.shuffle(sent_perturbations)
+            sent_perturbations = set(sent_perturbations[:max_n_samples])
+        return sent_perturbations
