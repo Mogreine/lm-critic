@@ -1,5 +1,6 @@
 import os
 import json
+from argparse import ArgumentParser
 
 import numpy as np
 from tqdm import tqdm
@@ -16,10 +17,10 @@ def load_data(data_path: str) -> Tuple[List[str], List[str]]:
     good_sents, bad_sents = [], []
     for line in open(data_path):
         obj = json.loads(line)
-        good_sents.append(obj['good'])
-        bad_sents.append(obj['bad'])
+        good_sents.append(obj["good"])
+        bad_sents.append(obj["bad"])
 
-    return good_sents, bad_sents
+    return good_sents[:5], bad_sents[:5]
 
 
 def calc_metrics(preds, target) -> Dict[str, float]:
@@ -30,13 +31,15 @@ def calc_metrics(preds, target) -> Dict[str, float]:
     }
 
 
-def evaluate(good_sentences, bad_sentences) -> Tuple[Dict[str, float], Dict[str, float]]:
+def evaluate(good_sentences, bad_sentences, is_refined: bool = True) -> Tuple[Dict[str, float], Dict[str, float]]:
     critic = LMCritic()
 
     preds = []
     for sentence in tqdm(good_sentences + bad_sentences, desc="Evaluating sentences..."):
         sentence = TextPostprocessor.detokenize_sent(sentence)
-        is_good, *_ = critic.evaluate_sentence(sentence, n_samples=100, return_counter_example=False)
+        is_good, *_ = critic.evaluate_sentence(
+            sentence, n_samples=100, return_counter_example=False, is_refined=is_refined
+        )
         preds.append(is_good)
 
     target = [1] * len(good_sentences) + [0] * len(bad_sentences)
@@ -52,13 +55,17 @@ def evaluate(good_sentences, bad_sentences) -> Tuple[Dict[str, float], Dict[str,
 
 
 if __name__ == "__main__":
-    seed_everything(42)
+    args = ArgumentParser()
+    args.add_argument("--refined", type=bool, default=True, help="Perturbation method")
+    args = args.parse_args()
+
+    seed_everything(1)
 
     data_path = os.path.join(ROOT_PATH, "artifacts/eval_data.jsonl")
 
     good_sentences, bad_sentences = load_data(data_path)
 
-    metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences)
+    metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.refined)
 
     print("Good:")
     for name, value in metrics_good.items():
