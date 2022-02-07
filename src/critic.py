@@ -40,7 +40,7 @@ class LMCritic:
 
     @torch.inference_mode()
     def __get_probability(self, sentences: List[str]) -> torch.Tensor:
-        sentences = [self.tokenizer.bos_token + " " + s for s in sentences]
+        sentences = [self.tokenizer.bos_token + s for s in sentences]
         sentences_encoded = self.tokenizer(sentences, padding=True, return_tensors="pt")
         sentences_encoded = {k: v.to(self.device) for k, v in sentences_encoded.items()}
         output = self.model(**sentences_encoded, labels=sentences_encoded["input_ids"])
