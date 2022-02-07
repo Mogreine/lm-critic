@@ -20,7 +20,7 @@ def load_data(data_path: str) -> Tuple[List[str], List[str]]:
         good_sents.append(obj["good"])
         bad_sents.append(obj["bad"])
 
-    return good_sents[:5], bad_sents[:5]
+    return good_sents, bad_sents
 
 
 def calc_metrics(preds, target) -> Dict[str, float]:
