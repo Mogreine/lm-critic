@@ -4,7 +4,7 @@ import math
 import pickle
 import random
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import List
 
 import editdistance
@@ -17,9 +17,13 @@ from src.edit_dist_utils import get_all_edit_dist_one
 from src.tokenizer import TextPostprocessor
 
 VERBS = pickle.load(open(f"{ROOT_PATH}/artifacts/verbs.p", "rb"))
-COMMON_INSERTS = set(pickle.load(open(f"{ROOT_PATH}/artifacts/common_inserts.p", "rb")))  # common inserts *to fix a sent*
+COMMON_INSERTS = set(
+    pickle.load(open(f"{ROOT_PATH}/artifacts/common_inserts.p", "rb"))
+)  # common inserts *to fix a sent*
 COMMON_DELETES = pickle.load(open(f"{ROOT_PATH}/artifacts/common_deletes.p", "rb"))  # common deletes *to fix a sent*
-_COMMON_REPLACES = pickle.load(open(f"{ROOT_PATH}/artifacts/common_replaces.p", "rb"))  # common replacements *to error a sent*
+_COMMON_REPLACES = pickle.load(
+    open(f"{ROOT_PATH}/artifacts/common_replaces.p", "rb")
+)  # common replacements *to error a sent*
 
 
 COMMON_REPLACES = {}
@@ -38,81 +42,27 @@ for src in _COMMON_REPLACES:
         COMMON_REPLACES[tgt][src] = _COMMON_REPLACES[src][tgt]
 
 
-class WordLevelPerturbator:
-    def _insert(self, sentence: str) -> str:
-        """Insert a commonly deleted word."""
-        sentence_tokenized = self.__tokenize(sentence)
-        if len(sentence_tokenized) > 0:
-            insertable = list(range(len(sentence_tokenized)))
-            index = random.choice(insertable)
-            plist = list(COMMON_DELETES.values())
-            plistsum = sum(plist)
-            plist = [x / plistsum for x in plist]
-            # Choose a word
-            ins_word = npchoice(list(COMMON_DELETES.keys()), p=plist)
-            sentence_tokenized.insert(index, ins_word)
-        return " ".join(sentence_tokenized)
+VERBS_refine = defaultdict(list)
+for src in VERBS:
+    for tgt in VERBS[src]:
+        ED = editdistance.eval(tgt, src)
+        if ED > 2:
+            continue
+        longer = max(len(src), len(tgt))
+        if float(ED) / longer >= 0.5:
+            continue
+        VERBS_refine[src].append(tgt)
 
-    def _mod_verb(self, sentence: str, redir=True) -> str:
-        sentence_tokenized = self.__tokenize(sentence)
-        if len(sentence_tokenized) > 0:
-            verbs = [i for i, w in enumerate(sentence_tokenized) if w in VERBS]
-            if not verbs:
-                if redir:
-                    return self._replace(sentence, redir=False)
-                return sentence
-            index = random.choice(verbs)
-            word = sentence_tokenized[index]
-            if not VERBS[word]:
-                return sentence
-            repl = random.choice(VERBS[word])
-            sentence_tokenized[index] = repl
-        return " ".join(sentence_tokenized)
 
-    def _delete(self, sentence: str) -> str:
-        """Delete a commonly inserted word."""
-        sentence_tokenized = self.__tokenize(sentence)
-        if len(sentence_tokenized) > 1:
-            toks_len = len(sentence_tokenized)
-            toks = sentence_tokenized
-            deletable = [i for i, w in enumerate(toks) if w in COMMON_INSERTS]
-            if not deletable:
-                return sentence
-            index = random.choice(deletable)
-            del sentence_tokenized[index]
-        return " ".join(sentence_tokenized)
+class WordLevelPerturbatorBase:
+    def __init__(self):
+        self.verbs = VERBS
 
-    def __tokenize(self, sentence: str):
-        return sentence.split()
+    def _filter_tokens_to_delete(self, tokens: List[str]) -> List[int]:
+        raise NotImplementedError()
 
-    def _replace(self, sentence: str, redir=True) -> str:
-        sentence_tokenized = self.__tokenize(sentence)
-        if len(sentence_tokenized) > 0:
-            deletable = [i for i, w in enumerate(sentence_tokenized) if (w in COMMON_REPLACES)]
-            if not deletable:
-                if redir:
-                    return self._mod_verb(sentence, redir=False)
-                return sentence
-            index = random.choice(deletable)
-            word = sentence_tokenized[index]
-            if not COMMON_REPLACES[word]:
-                return sentence
-            # Normalize probabilities
-            plist = list(COMMON_REPLACES[word].values())
-            plistsum = sum(plist)
-            plist = [x / plistsum for x in plist]
-            # Choose a word
-            repl = npchoice(list(COMMON_REPLACES[word].keys()), p=plist)
-            sentence_tokenized[index] = repl
-        return " ".join(sentence_tokenized)
-
-    def perturb(self, sentence: str) -> str:
-        count = 1
-        for x in range(count):
-            perturb_probs = [0.30, 0.30, 0.30, 0.10]
-            perturb_fun = npchoice([self._insert, self._mod_verb, self._replace, self._delete], p=perturb_probs)
-            sentence = perturb_fun(sentence)
-        return sentence
+    def _filter_tokens_to_replace(self, tokens: List[str]) -> List[int]:
+        raise NotImplementedError()
 
     def get_local_neighbors_word_level(self, sent_toked, max_n_samples=500):
         """ sent_toked is tokenized by spacy """
@@ -130,9 +80,113 @@ class WordLevelPerturbator:
         assert len(sent_perturbations) <= max_n_samples
         return sent_perturbations, original_sentence_detokenized
 
+    def perturb(self, sentence: str) -> str:
+        count = 1
+        for x in range(count):
+            perturb_probs = [0.30, 0.30, 0.30, 0.10]
+            perturb_fun = npchoice([self._insert, self._mod_verb, self._replace, self._delete], p=perturb_probs)
+            sentence = perturb_fun(sentence)
+        return sentence
+
+    def __tokenize(self, sentence: str):
+        return sentence.split()
+
+    def _insert(self, sentence: str) -> str:
+        """Insert a commonly deleted word."""
+        sentence_tokenized = self.__tokenize(sentence)
+        if len(sentence_tokenized) > 0:
+            insertable = list(range(len(sentence_tokenized)))
+            index = random.choice(insertable)
+            plist = list(COMMON_DELETES.values())
+            plistsum = sum(plist)
+            plist = [x / plistsum for x in plist]
+            # Choose a word
+            ins_word = npchoice(list(COMMON_DELETES.keys()), p=plist)
+            sentence_tokenized.insert(index, ins_word)
+        return " ".join(sentence_tokenized)
+
+    def _mod_verb(self, sentence: str, redir=True) -> str:
+        sentence_tokenized = self.__tokenize(sentence)
+        if len(sentence_tokenized) > 0:
+            verbs = [i for i, w in enumerate(sentence_tokenized) if w in self.verbs]
+            if not verbs:
+                if redir:
+                    return self._replace(sentence, redir=False)
+                return sentence
+            index = random.choice(verbs)
+            word = sentence_tokenized[index]
+            if not self.verbs[word]:
+                return sentence
+            repl = random.choice(self.verbs[word])
+            sentence_tokenized[index] = repl
+        return " ".join(sentence_tokenized)
+
+    def _delete(self, sentence: str) -> str:
+        """Delete a commonly inserted word."""
+        sentence_tokenized = self.__tokenize(sentence)
+        if len(sentence_tokenized) > 1:
+            toks_len = len(sentence_tokenized)
+            toks = sentence_tokenized
+            deletable = self._filter_tokens_to_delete(toks)
+            if not deletable:
+                return sentence
+            index = random.choice(deletable)
+            del sentence_tokenized[index]
+        return " ".join(sentence_tokenized)
+
+    def _replace(self, sentence: str, redir=True) -> str:
+        sentence_tokenized = self.__tokenize(sentence)
+        if len(sentence_tokenized) > 0:
+            deletable = self._filter_tokens_to_replace(sentence_tokenized)
+
+            if not deletable:
+                if redir:
+                    return self._mod_verb(sentence, redir=False)
+                return sentence
+
+            index = random.choice(deletable)
+            word = sentence_tokenized[index]
+            if not COMMON_REPLACES[word]:
+                return sentence
+
+            # Normalize probabilities
+            plist = list(COMMON_REPLACES[word].values())
+            plistsum = sum(plist)
+            plist = [x / plistsum for x in plist]
+
+            # Choose a word
+            repl = npchoice(list(COMMON_REPLACES[word].keys()), p=plist)
+            sentence_tokenized[index] = repl
+
+        return " ".join(sentence_tokenized)
+
+
+class WordLevelPerturbator(WordLevelPerturbatorBase):
+    def _filter_tokens_to_delete(self, tokens: List[str]) -> List[int]:
+        return [i for i, tok in enumerate(tokens) if tok in COMMON_INSERTS]
+
+    def _filter_tokens_to_replace(self, tokens: List[str]) -> List[int]:
+        return [i for i, tok in enumerate(tokens) if tok in COMMON_REPLACES]
+
+
+class WordLevelPerturbatorRefined(WordLevelPerturbatorBase):
+    def __init__(self):
+        super().__init__()
+        self.verbs = VERBS_refine
+
+    def _filter_tokens_to_delete(self, tokens: List[str]) -> List[int]:
+        return [
+            i
+            for i, tok in enumerate(tokens)
+            if tok in COMMON_INSERTS and i > 0 and tokens[i - 1].lower() == tokens[i].lower()
+        ]
+
+    def _filter_tokens_to_replace(self, tokens: List[str]) -> List[int]:
+        return [i for i, tok in enumerate(tokens) if tok in COMMON_REPLACES and tok.lower() not in {"not", "n't"}]
+
 
 class CharLevelPerturbator:
-    def __init__(self, attack_type='ed1'):
+    def __init__(self, attack_type="ed1"):
         self.cache = {}  # {word: {0: set(), 1: set(),.. }, ..} #0=swap, 1=substitute, 2=delete, 3=insert
         self.n_types = 5
         self.attack_type = attack_type
@@ -141,7 +195,7 @@ class CharLevelPerturbator:
     def __tokenize(self, sent):
         toks = []
         word_idxs = []
-        for idx, match in enumerate(re.finditer(r'([a-zA-Z]+)|([0-9]+)|.', sent)):
+        for idx, match in enumerate(re.finditer(r"([a-zA-Z]+)|([0-9]+)|.", sent)):
             tok = match.group(0)
             toks.append(tok)
             if len(tok) > 2 and tok.isalpha() and (tok[0].islower()):
@@ -149,12 +203,13 @@ class CharLevelPerturbator:
         return toks, word_idxs
 
     def __detokenize(self, toks):
-        return ''.join(toks)
+        return "".join(toks)
 
     def sample_perturbations(self, word, n_samples, types):
         if types is None:
             type_list = list(range(4)) * (n_samples // 4) + list(
-                np.random.choice(self.n_types, n_samples % self.n_types, replace=False))
+                np.random.choice(self.n_types, n_samples % self.n_types, replace=False)
+            )
         else:
             type_list = [sample(types, 1)[0] for _ in range(n_samples)]
         type_count = Counter(type_list)
@@ -180,7 +235,7 @@ class CharLevelPerturbator:
             elif word[0].isupper():
                 if word in self.common_typo:
                     self.cache[word][4] = set(self.common_typo[word])
-        if self.attack_type == 'ed1':
+        if self.attack_type == "ed1":
             perturbations = self.sample_perturbations(word, n_samples, types)
         else:
             raise NotImplementedError("Attack type: {} not implemented yet".format(self.attack_type))
@@ -188,7 +243,7 @@ class CharLevelPerturbator:
 
     #
     def name(self):
-        return 'RandomPerturbationAttack'
+        return "RandomPerturbationAttack"
 
     def get_local_neighbors_char_level(self, sent, max_n_samples=500) -> set:
         words, word_idxs = self.__tokenize(sent)
@@ -212,7 +267,7 @@ class CharLevelPerturbator:
             words_cp = words[:]
             word = words_cp[word_idx]
             if len(word) > 2 and word[0].islower():
-                words_cp[word_idx] = word + 's'
+                words_cp[word_idx] = word + "s"
                 sent_perturbed = self.__detokenize(words_cp)
                 if sent_perturbed != sent:
                     sent_perturbations.add(sent_perturbed)

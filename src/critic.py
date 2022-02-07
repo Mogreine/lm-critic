@@ -5,7 +5,7 @@ from typing import List
 from torch.nn import CrossEntropyLoss
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
-from src.perturbations import WordLevelPerturbator, CharLevelPerturbator
+from src.perturbations import WordLevelPerturbator, CharLevelPerturbator, WordLevelPerturbatorRefined
 from src.tokenizer import TextPreprocessor
 
 
@@ -22,7 +22,9 @@ class LMCritic:
 
         self.preprocessor = TextPreprocessor()
 
-        self.word_level_perturbator = WordLevelPerturbator()
+        self.word_level_perturbator_all = WordLevelPerturbator()
+        self.word_level_perturbator_refined = WordLevelPerturbatorRefined()
+
         self.char_level_perturbator = CharLevelPerturbator()
 
     def __calc_loss(self, logits: torch.Tensor, attention_mask: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
@@ -53,6 +55,7 @@ class LMCritic:
         sentence: str,
         preprocess_method: str = "gec",
         n_samples: int = 500,
+        is_refined: bool = True,
         verbose: bool = False,
         return_counter_example: bool = False,
     ):
@@ -60,7 +63,9 @@ class LMCritic:
 
         sentence_tokenized = self.preprocessor.preprocess(sentence, preprocess_method == "bea19")
 
-        sent_perturbations_w, orig_sent = self.word_level_perturbator.get_local_neighbors_word_level(
+        perturbator = self.word_level_perturbator_refined if is_refined else self.word_level_perturbator_all
+
+        sent_perturbations_w, orig_sent = perturbator.get_local_neighbors_word_level(
             sentence_tokenized, max_n_samples=n_samples // 2
         )
         sent_perturbations_c = self.char_level_perturbator.get_local_neighbors_char_level(
