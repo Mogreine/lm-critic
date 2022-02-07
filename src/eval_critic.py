@@ -31,8 +31,10 @@ def calc_metrics(preds, target) -> Dict[str, float]:
     }
 
 
-def evaluate(good_sentences, bad_sentences, is_refined: bool = True) -> Tuple[Dict[str, float], Dict[str, float]]:
-    critic = LMCritic()
+def evaluate(
+    good_sentences, bad_sentences, use_gpu: bool = False, is_refined: bool = True
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    critic = LMCritic(use_gpu=use_gpu)
 
     preds = []
     for sentence in tqdm(good_sentences + bad_sentences, desc="Evaluating sentences..."):
@@ -56,6 +58,8 @@ def evaluate(good_sentences, bad_sentences, is_refined: bool = True) -> Tuple[Di
 
 if __name__ == "__main__":
     args = ArgumentParser()
+    args.add_argument("--seed", type=int, default=1)
+    args.add_argument("--use_gpu", action="store_true")
     args.add_argument("--refined", type=bool, default=True, help="Perturbation method")
     args = args.parse_args()
 
@@ -65,7 +69,7 @@ if __name__ == "__main__":
 
     good_sentences, bad_sentences = load_data(data_path)
 
-    metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.refined)
+    metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.use_gpu, args.refined)
 
     print("Good:")
     for name, value in metrics_good.items():
