@@ -49,3 +49,8 @@ where
 | ED1 + word(refine). Paper | 72.7 | 65.1 | 71.1 |
 
 The results are comparable to the ones from the paper.
+
+# Drawbacks of critic
+1. Character level perturbations quite often make non-existent words. It might be good to check if the word exists before creating such a perturbation.
+2. There are word level perturbation like `I like apple.` -> `to I like apple.` With some insertions it is easy to understand if a perturbation is correct or not.
+3. In general more rules for perturbation filtration (like refine or the ones described earlier) might improve the quality of lm critic.
