@@ -14,7 +14,7 @@ from src.utils import seed_everything
 from src.tokenizer import TextPostprocessor
 
 
-def load_data(data_path: str) -> Tuple[List[str], List[str]]:
+def load_bea19(data_path: str) -> Tuple[List[str], List[str]]:
     good_sents, bad_sents = [], []
     for line in open(data_path):
         obj = json.loads(line)
@@ -24,7 +24,7 @@ def load_data(data_path: str) -> Tuple[List[str], List[str]]:
     return good_sents, bad_sents
 
 
-def load_data_realec(data_path: str) -> Tuple[List[str], List[str]]:
+def load_realec(data_path: str) -> Tuple[List[str], List[str]]:
     df = pd.read_csv(data_path)
     return df["good_sentence"].tolist(), df["bad_sentence"].tolist()
 
@@ -80,9 +80,9 @@ if __name__ == "__main__":
     realec_data_path = os.path.join(ROOT_PATH, "data/realec_style_eval.csv")
 
     if args.dataset == "bea19":
-        good_sentences, bad_sentences = load_data(bea19_data_path)
+        good_sentences, bad_sentences = load_bea19(bea19_data_path)
     else:
-        good_sentences, bad_sentences = load_data(realec_data_path)
+        good_sentences, bad_sentences = load_realec(realec_data_path)
 
     metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.bs, args.use_gpu, args.refined)
 
