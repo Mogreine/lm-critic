@@ -21,7 +21,7 @@ where
 # Evaluation
 To run evaluation on the dataset:
 ```
-PYTHONPATH=. python src/eval_critic.py --seed $SEED$ --use_gpu --refined 
+PYTHONPATH=. python src/eval_critic.py --seed $SEED$ --use_gpu --refined --dataset $DATASET$
 ```
 where
 * `--seed` -- initialization state of a pseudo-random number generator
