@@ -10,7 +10,7 @@ pip install -r requirements.txt
 # Usage
 The critic is defined in `src/critic.py`. In order to evaluate a sentence run:
 ```
-PYTHONPATH=. python src/evaluate_sentence.py -s $SENTENCE$ --use_gpu --refined 
+PYTHONPATH=. python src/evaluate_sentence.py -s $SENTENCE$ --bs $BATCH_SIZE$ --use_gpu --refined 
 ```
 where
 * `-s` -- the sentence to evaluate
@@ -21,7 +21,7 @@ where
 # Evaluation
 To run evaluation on the dataset:
 ```
-PYTHONPATH=. python src/eval_critic.py --seed $SEED$ --use_gpu --refined --dataset $DATASET$
+PYTHONPATH=. python src/eval_critic.py --seed $SEED$ --bs $BATCH_SIZE$ --use_gpu --refined --dataset $DATASET$
 ```
 where
 * `--seed` -- initialization state of a pseudo-random number generator
