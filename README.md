@@ -28,6 +28,7 @@ PYTHONPATH=. python src/eval_critic.py --seed $SEED$ --use_gpu --refined
 where
 * `--seed` -- initialization state of a pseudo-random number generator
 * `--bs` -- batch size of lm critic for probability calculation
+* `--dataset` -- dataset ot evaluate on. Must be `bea19` or `realec`
 * `--refined` -- enables refine word-level perturbations
 * `--use_gpu` -- enables gpu usage for probabilities computation
 

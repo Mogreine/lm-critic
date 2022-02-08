@@ -1,9 +1,10 @@
 import os
 import json
-from argparse import ArgumentParser
-
 import numpy as np
+import pandas as pd
+
 from tqdm import tqdm
+from argparse import ArgumentParser
 from typing import Dict, List, Tuple
 from sklearn.metrics import fbeta_score, precision_score, recall_score
 
@@ -21,6 +22,11 @@ def load_data(data_path: str) -> Tuple[List[str], List[str]]:
         bad_sents.append(obj["bad"])
 
     return good_sents, bad_sents
+
+
+def load_data_realec(data_path: str) -> Tuple[List[str], List[str]]:
+    df = pd.read_csv(data_path)
+    return df["good_sentence"].tolist(), df["bad_sentence"].tolist()
 
 
 def calc_metrics(preds, target) -> Dict[str, float]:
@@ -61,15 +67,22 @@ if __name__ == "__main__":
     args = ArgumentParser()
     args.add_argument("--seed", type=int, default=1)
     args.add_argument("--bs", type=int, default=64, help="Batch size fo probability calculation")
+    args.add_argument("--dataset", type=str, default="bea19", help="Dataset ot evaluate on. Must be bea19 or realec.")
     args.add_argument("--use_gpu", action="store_true")
     args.add_argument("--refined", action="store_true", help="Perturbation method")
     args = args.parse_args()
 
+    assert args.dataset in ["bea19", "realec"], f"Unsupported dataset: {args.dataset}. Must be bea19 or realec."
+
     seed_everything(1)
 
-    data_path = os.path.join(ROOT_PATH, "data/eval_data.jsonl")
+    bea19_data_path = os.path.join(ROOT_PATH, "data/eval_data.jsonl")
+    realec_data_path = os.path.join(ROOT_PATH, "data/realec_style_eval.csv")
 
-    good_sentences, bad_sentences = load_data(data_path)
+    if args.dataset == "bea19":
+        good_sentences, bad_sentences = load_data(bea19_data_path)
+    else:
+        good_sentences, bad_sentences = load_data(realec_data_path)
 
     metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.bs, args.use_gpu, args.refined)
 
