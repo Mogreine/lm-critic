@@ -60,7 +60,7 @@ if __name__ == "__main__":
     args = ArgumentParser()
     args.add_argument("--seed", type=int, default=1)
     args.add_argument("--use_gpu", action="store_true")
-    args.add_argument("--refined", type=bool, default=True, help="Perturbation method")
+    args.add_argument("--refined", action="store_true", help="Perturbation method")
     args = args.parse_args()
 
     seed_everything(1)
