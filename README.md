@@ -19,8 +19,6 @@ where
 * `--use_gpu` -- enables gpu usage for probabilities computation 
 
 # Evaluation
-You can find the evaluation dataset at `data/eval_data.jsonl`. It is the same dataset which is used 
-for lm critic evaluation in the paper (contains sentences from GMEG-wiki, GMEG-yahoo and BEA19). 
 To run evaluation on the dataset:
 ```
 PYTHONPATH=. python src/eval_critic.py --seed $SEED$ --use_gpu --refined 
@@ -33,6 +31,8 @@ where
 * `--use_gpu` -- enables gpu usage for probabilities computation
 
 ## BEA19
+You can find the dataset at `data/eval_data.jsonl`. It is the same dataset which is used 
+for lm critic evaluation in the paper (contains sentences from GMEG-wiki, GMEG-yahoo and BEA19). 
 ### Recognize "Good"
 | Method   |      P      |  R  | F_{0.5}|
 |----------|:-------------:|:------:|:---:|
@@ -52,6 +52,7 @@ where
 The results are comparable to the ones from the paper.
 
 ## REALEC style
+You can find the dataset at `data/realec_style_eval.csv`.
 REALEC style consists of 2000 pairs of good and bad sentences with only style mistakes.
 ### Recognize "Good"
 | Method   |      P      |  R  | F_{0.5}|
