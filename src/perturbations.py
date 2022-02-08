@@ -18,7 +18,7 @@ from src.tokenizer import TextPostprocessor
 
 class WordLevelPerturbatorBase(ABC):
     def __init__(self):
-        self._verbs = None
+        self._word_forms = None
         self._common_inserts = None
         self._common_deletes = None
         self._common_replaces = None
@@ -37,7 +37,7 @@ class WordLevelPerturbatorBase(ABC):
 
     def _load_common_modifications(self):
         with open(os.path.join(ROOT_PATH, "data/verbs.p"), "rb") as file:
-            self._verbs = pickle.load(file)
+            self._word_forms = pickle.load(file)
         with open(os.path.join(ROOT_PATH, "data/common_inserts.p"), "rb") as file:
             self._common_inserts = set(pickle.load(file))
         with open(os.path.join(ROOT_PATH, "data/common_deletes.p"), "rb") as file:
@@ -79,7 +79,7 @@ class WordLevelPerturbatorBase(ABC):
 
     def perturb(self, sentence: str) -> str:
         perturb_probs = [0.30, 0.30, 0.30, 0.10]
-        perturb_fun = np.random.choice([self._insert, self._mod_verb, self._replace, self._delete], p=perturb_probs)
+        perturb_fun = np.random.choice([self._insert, self._mod_word, self._replace, self._delete], p=perturb_probs)
         sentence = perturb_fun(sentence)
         return sentence
 
@@ -101,20 +101,26 @@ class WordLevelPerturbatorBase(ABC):
 
         return " ".join(sentence_tokenized)
 
-    def _mod_verb(self, sentence: str, redir=True) -> str:
+    def _mod_word(self, sentence: str, redir: bool = True) -> str:
+        """
+        Tries to replace a word by its other forms (plural or singular in case of nouns and tense dependent in case of verbs).
+        It samples the words uniformly.
+        """
         sentence_tokenized = self._tokenize(sentence)
 
         if len(sentence_tokenized) > 0:
-            verbs = [i for i, w in enumerate(sentence_tokenized) if w in self._verbs]
+            verbs = [i for i, w in enumerate(sentence_tokenized) if w in self._word_forms]
+
             if not verbs:
                 if redir:
                     return self._replace(sentence, redir=False)
                 return sentence
+
             index = random.choice(verbs)
             word = sentence_tokenized[index]
-            if not self._verbs[word]:
+            if not self._word_forms[word]:
                 return sentence
-            replacement = random.choice(self._verbs[word])
+            replacement = random.choice(self._word_forms[word])
             sentence_tokenized[index] = replacement
 
         return " ".join(sentence_tokenized)
@@ -133,17 +139,21 @@ class WordLevelPerturbatorBase(ABC):
 
         return " ".join(sentence_tokenized)
 
-    def _replace(self, sentence: str, redir=True) -> str:
+    def _replace(self, sentence: str, redir: bool = True) -> str:
+        """
+        Tries to replace a word by its common replacements.
+        It samples the words according to the popularity of a replacement.
+        """
         sentence_tokenized = self._tokenize(sentence)
         if len(sentence_tokenized) > 0:
-            deletable = self._filter_tokens_to_replace(sentence_tokenized)
+            replaceable = self._filter_tokens_to_replace(sentence_tokenized)
 
-            if not deletable:
+            if not replaceable:
                 if redir:
-                    return self._mod_verb(sentence, redir=False)
+                    return self._mod_word(sentence, redir=False)
                 return sentence
 
-            index = random.choice(deletable)
+            index = random.choice(replaceable)
             word = sentence_tokenized[index]
             if not self._common_replaces_refine[word]:
                 return sentence
@@ -170,17 +180,17 @@ class WordLevelPerturbator(WordLevelPerturbatorBase):
 class WordLevelPerturbatorRefined(WordLevelPerturbatorBase):
     def __init__(self):
         super().__init__()
-        self._verbs = self._refine_verbs()
+        self._word_forms = self._refine_verbs()
 
     def _refine_verbs(self):
         verbs_refine = defaultdict(list)
-        for src in self._verbs:
-            for tgt in self._verbs[src]:
+        for src in self._word_forms:
+            for tgt in self._word_forms[src]:
                 edit_dist = editdistance.eval(tgt, src)
                 if edit_dist > 2:
                     continue
                 longer = max(len(src), len(tgt))
-                if float(edit_dist) / longer >= 0.5:
+                if edit_dist / longer >= 0.5:
                     continue
                 verbs_refine[src].append(tgt)
 
