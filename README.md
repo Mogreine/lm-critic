@@ -4,7 +4,7 @@ Implementation of LM critic for sentence evaluation.
 # 1. Dependencies
 To install all the dependencies run from the project root:
 ```
-pip install -r requrements.txt
+pip install -r requirements.txt
 ```
 
 # 2. Usage

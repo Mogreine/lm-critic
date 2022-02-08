@@ -51,6 +51,7 @@ def evaluate(
     # 0, 1 -> 1, 0
     preds = np.abs(np.array(preds) - 1)
     target = np.abs(np.array(target) - 1)
+
     metrics_bad = calc_metrics(preds, target)
 
     return metrics_good, metrics_bad
@@ -71,10 +72,10 @@ if __name__ == "__main__":
 
     metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.use_gpu, args.refined)
 
-    print("Good:")
+    print("Recognize good:")
     for name, value in metrics_good.items():
         print(f"{name}: {value: .3f}")
 
-    print("\nBad:")
+    print("\nRecognize bad:")
     for name, value in metrics_bad.items():
         print(f"{name}: {value: .3f}")

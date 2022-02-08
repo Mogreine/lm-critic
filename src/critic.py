@@ -65,10 +65,10 @@ class LMCritic:
 
         perturbator = self.word_level_perturbator_refined if is_refined else self.word_level_perturbator_all
 
-        sent_perturbations_w, orig_sent = perturbator.get_local_neighbors_word_level(
+        sent_perturbations_w, orig_sent = perturbator.get_local_neighbors(
             sentence_tokenized, max_n_samples=n_samples // 2
         )
-        sent_perturbations_c = self.char_level_perturbator.get_local_neighbors_char_level(
+        sent_perturbations_c = self.char_level_perturbator.get_local_neighbors(
             orig_sent, max_n_samples=n_samples // 2
         )
 

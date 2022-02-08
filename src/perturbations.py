@@ -9,7 +9,6 @@ import numpy as np
 from typing import List
 from abc import ABC, abstractmethod
 from collections import Counter, defaultdict
-from numpy.random import choice as npchoice
 from random import sample
 
 from definitions import ROOT_PATH
@@ -36,10 +35,14 @@ class WordLevelPerturbatorBase(ABC):
         raise NotImplementedError()
 
     def _load_common_modifications(self):
-        self.verbs = pickle.load(open(os.path.join(ROOT_PATH, "data/verbs.p"), "rb"))
-        self.common_inserts = set(pickle.load(open(os.path.join(ROOT_PATH, "data/common_inserts.p"), "rb")))
-        self.common_deletes = pickle.load(open(os.path.join(ROOT_PATH, "data/common_deletes.p"), "rb"))
-        self.common_replaces = pickle.load(open(os.path.join(ROOT_PATH, "data/common_replaces.p"), "rb"))
+        with open(os.path.join(ROOT_PATH, "data/verbs.p"), "rb") as file:
+            self.verbs = pickle.load(file)
+        with open(os.path.join(ROOT_PATH, "data/common_inserts.p"), "rb") as file:
+            self.common_inserts = set(pickle.load(file))
+        with open(os.path.join(ROOT_PATH, "data/common_deletes.p"), "rb") as file:
+            self.common_deletes = pickle.load(file)
+        with open(os.path.join(ROOT_PATH, "data/common_replaces.p"), "rb") as file:
+            self.common_replaces = pickle.load(file)
 
         self.common_replaces_refine = {}
         for src in self.common_replaces:
@@ -56,7 +59,7 @@ class WordLevelPerturbatorBase(ABC):
                     self.common_replaces_refine[tgt] = {}
                 self.common_replaces_refine[tgt][src] = self.common_replaces[src][tgt]
 
-    def get_local_neighbors_word_level(self, sent_toked, max_n_samples=500):
+    def get_local_neighbors(self, sent_toked, max_n_samples=500):
         """ sent_toked is tokenized by spacy """
         n_samples = min(len(sent_toked) * 20, max_n_samples)
         original_sentence = " ".join(sent_toked)
@@ -74,7 +77,7 @@ class WordLevelPerturbatorBase(ABC):
 
     def perturb(self, sentence: str) -> str:
         perturb_probs = [0.30, 0.30, 0.30, 0.10]
-        perturb_fun = npchoice([self._insert, self._mod_verb, self._replace, self._delete], p=perturb_probs)
+        perturb_fun = np.random.choice([self._insert, self._mod_verb, self._replace, self._delete], p=perturb_probs)
         sentence = perturb_fun(sentence)
         return sentence
 
@@ -91,7 +94,7 @@ class WordLevelPerturbatorBase(ABC):
             plist = [x / sum(plist) for x in plist]
 
             # Choose a word
-            ins_word = npchoice(list(self.common_deletes.keys()), p=plist)
+            ins_word = np.random.choice(list(self.common_deletes.keys()), p=plist)
             sentence_tokenized.insert(index, ins_word)
 
         return " ".join(sentence_tokenized)
@@ -149,7 +152,7 @@ class WordLevelPerturbatorBase(ABC):
             plist = [x / plistsum for x in plist]
 
             # Choose a word
-            repl = npchoice(list(self.common_replaces_refine[word].keys()), p=plist)
+            repl = np.random.choice(list(self.common_replaces_refine[word].keys()), p=plist)
             sentence_tokenized[index] = repl
 
         return " ".join(sentence_tokenized)
@@ -199,7 +202,8 @@ class CharLevelPerturbator:
     def __init__(self):
         self.cache = {}  # {word: {0: set(), 1: set(),.. }, ..} #0=swap, 1=substitute, 2=delete, 3=insert
         self.n_types = 5
-        self.common_typo = json.load(open(os.path.join(ROOT_PATH, "data/common_typo.json")))
+        with open(os.path.join(ROOT_PATH, "data/common_typo.json")) as file:
+            self.common_typo = json.load(file)
 
     def __tokenize(self, sent):
         toks = []
@@ -207,21 +211,17 @@ class CharLevelPerturbator:
         for idx, match in enumerate(re.finditer(r"([a-zA-Z]+)|([0-9]+)|.", sent)):
             tok = match.group(0)
             toks.append(tok)
-            if len(tok) > 2 and tok.isalpha() and (tok[0].islower()):
+            if len(tok) > 2 and tok.isalpha() and tok[0].islower():
                 word_idxs.append(idx)
         return toks, word_idxs
 
     def __detokenize(self, toks):
         return "".join(toks)
 
-    def sample_perturbations(self, word, n_samples, types):
-        if types is None:
-            type_list = list(range(4)) * (n_samples // 4) + list(
-                np.random.choice(self.n_types, n_samples % self.n_types, replace=False)
-            )
-        else:
-            type_list = [sample(types, 1)[0] for _ in range(n_samples)]
-
+    def sample_perturbations(self, word: str, n_samples: int):
+        type_list = list(range(4)) * (n_samples // 4) + list(
+            np.random.choice(self.n_types, n_samples % self.n_types, replace=False)
+        )
         type_count = Counter(type_list)
         perturbations = set()
         for type in type_count:
@@ -234,7 +234,7 @@ class CharLevelPerturbator:
 
         return perturbations
 
-    def get_perturbations(self, word, n_samples, types=None):
+    def get_perturbations(self, word: str, n_samples: int):
         if word not in self.cache:
             self.cache[word] = {}
             if word[0].islower():
@@ -246,11 +246,11 @@ class CharLevelPerturbator:
                 if word in self.common_typo:
                     self.cache[word][4] = set(self.common_typo[word])
 
-        perturbations = self.sample_perturbations(word, n_samples, types)
+        perturbations = self.sample_perturbations(word, n_samples)
 
         return perturbations
 
-    def get_local_neighbors_char_level(self, sentence: str, max_n_samples: int = 500) -> set:
+    def get_local_neighbors(self, sentence: str, max_n_samples: int = 500) -> set:
         words, word_idxs = self.__tokenize(sentence)
         n_samples = min(len(word_idxs) * 20, max_n_samples)
         sent_perturbations = set()
