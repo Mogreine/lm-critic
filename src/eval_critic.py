@@ -32,7 +32,7 @@ def calc_metrics(preds, target) -> Dict[str, float]:
 
 
 def evaluate(
-    good_sentences, bad_sentences, use_gpu: bool = False, is_refined: bool = True
+    good_sentences, bad_sentences, batch_size: int = 64, use_gpu: bool = False, is_refined: bool = True
 ) -> Tuple[Dict[str, float], Dict[str, float]]:
     critic = LMCritic(use_gpu=use_gpu)
 
@@ -40,7 +40,7 @@ def evaluate(
     for sentence in tqdm(good_sentences + bad_sentences, desc="Evaluating sentences..."):
         sentence = TextPostprocessor.detokenize_sent(sentence)
         is_good, *_ = critic.evaluate_sentence(
-            sentence, n_samples=100, return_counter_example=False, is_refined=is_refined
+            sentence, n_samples=100, batch_size=batch_size, return_counter_example=False, is_refined=is_refined
         )
         preds.append(is_good)
 
@@ -60,6 +60,7 @@ def evaluate(
 if __name__ == "__main__":
     args = ArgumentParser()
     args.add_argument("--seed", type=int, default=1)
+    args.add_argument("--bs", type=int, default=64, help="Batch size fo probability calculation")
     args.add_argument("--use_gpu", action="store_true")
     args.add_argument("--refined", action="store_true", help="Perturbation method")
     args = args.parse_args()
@@ -70,7 +71,7 @@ if __name__ == "__main__":
 
     good_sentences, bad_sentences = load_data(data_path)
 
-    metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.use_gpu, args.refined)
+    metrics_good, metrics_bad = evaluate(good_sentences, bad_sentences, args.bs, args.use_gpu, args.refined)
 
     print("Recognize good:")
     for name, value in metrics_good.items():

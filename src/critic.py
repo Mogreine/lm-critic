@@ -1,7 +1,7 @@
 import torch
 
+from math import ceil
 from typing import List
-
 from torch.nn import CrossEntropyLoss
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
@@ -17,7 +17,6 @@ class LMCritic:
         self.model.eval()
 
         self.tokenizer = GPT2Tokenizer.from_pretrained(critic_model)
-        # Don't know why
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
         self.preprocessor = TextPreprocessor()
@@ -41,24 +40,46 @@ class LMCritic:
         return -loss
 
     @torch.inference_mode()
-    def __get_probability(self, sentences: List[str]) -> torch.Tensor:
-        sentences = [self.tokenizer.bos_token + s for s in sentences]
-        sentences_encoded = self.tokenizer(sentences, padding=True, return_tensors="pt")
-        sentences_encoded = {k: v.to(self.device) for k, v in sentences_encoded.items()}
-        output = self.model(**sentences_encoded, labels=sentences_encoded["input_ids"])
-        loss = self.__calc_loss(output.logits, sentences_encoded["attention_mask"], sentences_encoded["input_ids"])
+    def __get_probability(self, sentences: List[str], batch_size: int = 64) -> torch.Tensor:
+        log_probs = []
+        n_batches = ceil(len(sentences) / batch_size)
+        for idx in range(n_batches):
+            batch = [self.tokenizer.bos_token + s for s in sentences[idx * batch_size : (idx + 1) * batch_size]]
+            sentences_encoded = self.tokenizer(batch, padding=True, return_tensors="pt")
+            sentences_encoded = {k: v.to(self.device) for k, v in sentences_encoded.items()}
 
-        return loss
+            output = self.model(**sentences_encoded, labels=sentences_encoded["input_ids"])
+            logp = self.__calc_loss(output.logits, sentences_encoded["attention_mask"], sentences_encoded["input_ids"])
+            log_probs.append(logp)
+
+        log_probs = torch.hstack(log_probs)
+
+        return log_probs
 
     def evaluate_sentence(
         self,
         sentence: str,
         preprocess_method: str = "gec",
         n_samples: int = 500,
+        batch_size: int = 64,
         is_refined: bool = True,
         verbose: bool = False,
         return_counter_example: bool = False,
     ):
+        """
+        Evaluates whether the sentence's is grammatically correct or not.
+
+        :param sentence: The sentence to evaluate.
+        :param preprocess_method: Must be "bea19" if used specifically on "bea19" sentences, "gec" otherwise.
+        :param n_samples: Number of perturbations to be made.
+        :param batch_size: Batch size of lm critic for probability calculation.
+        :param is_refined: Whether or not to use refine version of perturbations.
+        :param verbose: Whether or not print process information.
+        :param return_counter_example: Whether or not return counter examples if the sentences evaluated to be incorrect.
+
+        :return: Tuple of critic's judgment as True of False and critic's score. In addition may return counter example --
+                 a better sentence and its score.
+        """
         assert preprocess_method == "gec" or preprocess_method == "bea19", "Unknown preprocessing method: {}"
 
         sentence_tokenized = self.preprocessor.preprocess(sentence, preprocess_method == "bea19")
@@ -68,20 +89,13 @@ class LMCritic:
         sent_perturbations_w, orig_sent = perturbator.get_local_neighbors(
             sentence_tokenized, max_n_samples=n_samples // 2
         )
-        sent_perturbations_c = self.char_level_perturbator.get_local_neighbors(
-            orig_sent, max_n_samples=n_samples // 2
-        )
+        sent_perturbations_c = self.char_level_perturbator.get_local_neighbors(orig_sent, max_n_samples=n_samples // 2)
 
         if verbose:
             print("#sent_perturbations (char-level)", len(sent_perturbations_c))
             print("#sent_perturbations (word-level)", len(sent_perturbations_w))
         sents = [orig_sent] + list(sent_perturbations_c.union(sent_perturbations_w))
-        logps = self.__get_probability(sents)
-
-        if logps is None:
-            if verbose:
-                print("Invalid input. Maybe the sentence is too long.")
-            return None
+        logps = self.__get_probability(sents, batch_size)
 
         best_idx = logps.argmax().item()
         is_good = best_idx == 0
