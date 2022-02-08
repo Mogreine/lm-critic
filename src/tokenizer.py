@@ -95,7 +95,7 @@ class TextPostprocessor:
         if len([1 for t in toks if t == "'"]) % 2 == 0:
             toks = ['"' if t == "'" else t for t in toks]
         sent = " ".join(toks)
-        #
+
         sentences = sent_tokenize(sent)
         final_sents = []
         for sent in sentences:

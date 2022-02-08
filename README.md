@@ -32,7 +32,7 @@ where
 * `--refined` -- enables refine word-level perturbations
 * `--use_gpu` -- enables gpu usage for probabilities computation
 
-## Results
+## BEA19
 ### Recognize "Good"
 | Method   |      P      |  R  | F_{0.5}|
 |----------|:-------------:|:------:|:---:|
@@ -51,7 +51,27 @@ where
 
 The results are comparable to the ones from the paper.
 
+## REALEC style
+REALEC style consists of 2000 pairs of good and bad sentences with only style mistakes.
+### Recognize "Good"
+| Method   |      P      |  R  | F_{0.5}|
+|----------|:-------------:|:------:|:---:|
+| ED1 + word(all)           | 58.7 | 10.6 | 30.9 |
+| ED1 + word(refine)        | 54.8 | 48.5 | 53.4 |
+
+### Recognize "Bad"
+| Method   |      P      |  R  | F_{0.5}|
+|----------|:-------------:|:------:|:---:|
+| ED1 + word(all)           | 50.9 | 92.5 | 55.9 |
+| ED1 + word(refine)        | 53.8 | 60.1 | 55.0 |
+
+As expected, LM critic is not much better than a coin toss on style mistakes. That is because all the perturbations
+either change orthography or word form/tense which won't generate a better sentence stylistically. 
+
+Also style mistakes often cover a few words -- and there are no such perturbations for the critic.
+
 # Drawbacks of critic
 1. Character level perturbations quite often make non-existent words. It might be good to check if the word exists before creating such a perturbation.
 2. There are word level perturbation like `I like apple.` -> `to I like apple.` With some insertions it is easy to understand if a perturbation is correct or not.
 3. In general more rules for perturbation filtration (like refine or the ones described earlier) might improve the quality of lm critic.
+4. Maybe there is a way to implement multi-word perturbation to cover style mistakes.
