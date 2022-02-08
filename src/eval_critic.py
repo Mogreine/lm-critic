@@ -75,6 +75,6 @@ if __name__ == "__main__":
     for name, value in metrics_good.items():
         print(f"{name}: {value: .3f}")
 
-    print("Bad:")
+    print("\nBad:")
     for name, value in metrics_bad.items():
         print(f"{name}: {value: .3f}")

@@ -87,8 +87,7 @@ class WordLevelPerturbatorBase(ABC):
             insertable = list(range(len(sentence_tokenized)))
             index = random.choice(insertable)
             plist = list(self.common_deletes.values())
-            plistsum = sum(plist)
-            plist = [x / plistsum for x in plist]
+            plist = [x / sum(plist) for x in plist]
 
             # Choose a word
             ins_word = npchoice(list(self.common_deletes.keys()), p=plist)
@@ -238,8 +237,8 @@ class CharLevelPerturbator:
         if word not in self.cache:
             self.cache[word] = {}
             if word[0].islower():
-                for type in range(4):
-                    self.cache[word][type] = get_all_edit_dist_one(word, 10 ** type)
+                for modification_type in range(4):
+                    self.cache[word][modification_type] = get_all_edit_dist_one(word, 10 ** modification_type)
                 if word in self.common_typo:
                     self.cache[word][4] = set(self.common_typo[word])
             elif word[0].isupper():
@@ -250,8 +249,8 @@ class CharLevelPerturbator:
 
         return perturbations
 
-    def get_local_neighbors_char_level(self, sent, max_n_samples=500) -> set:
-        words, word_idxs = self.__tokenize(sent)
+    def get_local_neighbors_char_level(self, sentence: str, max_n_samples: int = 500) -> set:
+        words, word_idxs = self.__tokenize(sentence)
         n_samples = min(len(word_idxs) * 20, max_n_samples)
         sent_perturbations = set()
 
@@ -265,7 +264,7 @@ class CharLevelPerturbator:
             if len(word_perturbations) > 0:
                 words_cp[word_idx] = word_perturbations[0]
                 sent_perturbed = self.__detokenize(words_cp)
-                if sent_perturbed != sent:
+                if sent_perturbed != sentence:
                     sent_perturbations.add(sent_perturbed)
             if len(sent_perturbations) == n_samples:
                 break
@@ -277,11 +276,12 @@ class CharLevelPerturbator:
             if len(word) > 2 and word[0].islower():
                 words_cp[word_idx] = word + "s"
                 sent_perturbed = self.__detokenize(words_cp)
-                if sent_perturbed != sent:
+                if sent_perturbed != sentence:
                     sent_perturbations.add(sent_perturbed)
+
                 words_cp[word_idx] = word[:-1]
                 sent_perturbed = self.__detokenize(words_cp)
-                if sent_perturbed != sent:
+                if sent_perturbed != sentence:
                     sent_perturbations.add(sent_perturbed)
 
         if len(sent_perturbations) > max_n_samples:
