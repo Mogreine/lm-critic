@@ -1,4 +1,5 @@
 import json
+import os.path
 import pickle
 import random
 import re
@@ -12,7 +13,7 @@ from numpy.random import choice as npchoice
 from random import sample
 
 from definitions import ROOT_PATH
-from src.edit_dist_utils import get_all_edit_dist_one
+from src.utils import get_all_edit_dist_one
 from src.tokenizer import TextPostprocessor
 
 
@@ -35,10 +36,10 @@ class WordLevelPerturbatorBase(ABC):
         raise NotImplementedError()
 
     def _load_common_modifications(self):
-        self.verbs = pickle.load(open(f"{ROOT_PATH}/artifacts/verbs.p", "rb"))
-        self.common_inserts = set(pickle.load(open(f"{ROOT_PATH}/artifacts/common_inserts.p", "rb")))
-        self.common_deletes = pickle.load(open(f"{ROOT_PATH}/artifacts/common_deletes.p", "rb"))
-        self.common_replaces = pickle.load(open(f"{ROOT_PATH}/artifacts/common_replaces.p", "rb"))
+        self.verbs = pickle.load(open(os.path.join(ROOT_PATH, "data/verbs.p"), "rb"))
+        self.common_inserts = set(pickle.load(open(os.path.join(ROOT_PATH, "data/common_inserts.p"), "rb")))
+        self.common_deletes = pickle.load(open(os.path.join(ROOT_PATH, "data/common_deletes.p"), "rb"))
+        self.common_replaces = pickle.load(open(os.path.join(ROOT_PATH, "data/common_replaces.p"), "rb"))
 
         self.common_replaces_refine = {}
         for src in self.common_replaces:
@@ -198,7 +199,7 @@ class CharLevelPerturbator:
     def __init__(self):
         self.cache = {}  # {word: {0: set(), 1: set(),.. }, ..} #0=swap, 1=substitute, 2=delete, 3=insert
         self.n_types = 5
-        self.common_typo = json.load(open(f"{ROOT_PATH}/artifacts/common_typo.json"))
+        self.common_typo = json.load(open(os.path.join(ROOT_PATH, "data/common_typo.json")))
 
     def __tokenize(self, sent):
         toks = []

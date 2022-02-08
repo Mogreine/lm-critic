@@ -1,7 +1,7 @@
 import re
 
 from nltk.tokenize.treebank import TreebankWordDetokenizer
-from nltk import sent_tokenize, word_tokenize
+from nltk import sent_tokenize
 from spacy.tokenizer import Tokenizer
 from spacy.lang.char_classes import ALPHA, ALPHA_LOWER, ALPHA_UPPER, CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS, HYPHENS
 from spacy.util import compile_infix_regex

@@ -9,7 +9,7 @@ from sklearn.metrics import fbeta_score, precision_score, recall_score
 
 from definitions import ROOT_PATH
 from src.critic import LMCritic
-from src.other_utils import seed_everything
+from src.utils import seed_everything
 from src.tokenizer import TextPostprocessor
 
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     seed_everything(1)
 
-    data_path = os.path.join(ROOT_PATH, "artifacts/eval_data.jsonl")
+    data_path = os.path.join(ROOT_PATH, "data/eval_data.jsonl")
 
     good_sentences, bad_sentences = load_data(data_path)
 
