@@ -10,9 +10,9 @@ from spacy.lang.en import English
 
 class TextPreprocessor:
     def __init__(self):
-        self.nlp = English()
-        self.gec_tokenizer = self.__get_tokenizer()
-        self.bea19_tokenizer = self.__get_tokenizer(True)
+        self._nlp = English()
+        self._gec_tokenizer = self.__get_tokenizer()
+        self._bea19_tokenizer = self.__get_tokenizer(True)
 
     def __get_tokenizer(self, is_bea19: bool = False):
         infixes = (
@@ -31,21 +31,21 @@ class TextPreprocessor:
         infix_re = compile_infix_regex(infixes)
 
         return Tokenizer(
-            self.nlp.vocab,
-            prefix_search=self.nlp.tokenizer.prefix_search,
-            suffix_search=self.nlp.tokenizer.suffix_search,
+            self._nlp.vocab,
+            prefix_search=self._nlp.tokenizer.prefix_search,
+            suffix_search=self._nlp.tokenizer.suffix_search,
             infix_finditer=infix_re.finditer,
-            token_match=self.nlp.tokenizer.token_match,
-            rules=self.nlp.Defaults.tokenizer_exceptions,
+            token_match=self._nlp.tokenizer.token_match,
+            rules=self._nlp.Defaults.tokenizer_exceptions,
         )
 
     def preprocess(self, text: str, is_bea19: bool = False):
-        self.nlp.tokenizer = self.gec_tokenizer if not is_bea19 else self.bea19_tokenizer
-        return [str(w) for w in self.nlp(text)]
+        self._nlp.tokenizer = self._gec_tokenizer if not is_bea19 else self._bea19_tokenizer
+        return [str(w) for w in self._nlp(text)]
 
 
 class TextPostprocessor:
-    detokenizer = TreebankWordDetokenizer()
+    _detokenizer = TreebankWordDetokenizer()
 
     @classmethod
     def handle_double_quote(cls, sent):
@@ -99,7 +99,7 @@ class TextPostprocessor:
         sentences = sent_tokenize(sent)
         final_sents = []
         for sent in sentences:
-            sent = cls.detokenizer.detokenize(sent.split())
+            sent = cls._detokenizer.detokenize(sent.split())
             res = cls.handle_double_quote(sent)
             if res == -1:
                 print("unbalanced double quote")

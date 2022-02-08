@@ -11,20 +11,20 @@ from src.tokenizer import TextPreprocessor
 
 class LMCritic:
     def __init__(self, critic_model: str = "gpt2", use_gpu: bool = False):
-        self.model = GPT2LMHeadModel.from_pretrained(critic_model)
+        self._model = GPT2LMHeadModel.from_pretrained(critic_model)
         self.device = "cuda" if use_gpu else "cpu"
-        self.model.to(self.device)
-        self.model.eval()
+        self._model.to(self.device)
+        self._model.eval()
 
-        self.tokenizer = GPT2Tokenizer.from_pretrained(critic_model)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self._tokenizer = GPT2Tokenizer.from_pretrained(critic_model)
+        self._tokenizer.pad_token = self._tokenizer.eos_token
 
-        self.preprocessor = TextPreprocessor()
+        self._preprocessor = TextPreprocessor()
 
-        self.word_level_perturbator_all = WordLevelPerturbator()
-        self.word_level_perturbator_refined = WordLevelPerturbatorRefined()
+        self._word_level_perturbator_all = WordLevelPerturbator()
+        self._word_level_perturbator_refined = WordLevelPerturbatorRefined()
 
-        self.char_level_perturbator = CharLevelPerturbator()
+        self._char_level_perturbator = CharLevelPerturbator()
 
     def __calc_loss(self, logits: torch.Tensor, attention_mask: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         shift_logits = logits[..., :-1, :].contiguous()
@@ -44,11 +44,11 @@ class LMCritic:
         log_probs = []
         n_batches = ceil(len(sentences) / batch_size)
         for idx in range(n_batches):
-            batch = [self.tokenizer.bos_token + s for s in sentences[idx * batch_size : (idx + 1) * batch_size]]
-            sentences_encoded = self.tokenizer(batch, padding=True, return_tensors="pt")
+            batch = [self._tokenizer.bos_token + s for s in sentences[idx * batch_size: (idx + 1) * batch_size]]
+            sentences_encoded = self._tokenizer(batch, padding=True, return_tensors="pt")
             sentences_encoded = {k: v.to(self.device) for k, v in sentences_encoded.items()}
 
-            output = self.model(**sentences_encoded, labels=sentences_encoded["input_ids"])
+            output = self._model(**sentences_encoded, labels=sentences_encoded["input_ids"])
             logp = self.__calc_loss(output.logits, sentences_encoded["attention_mask"], sentences_encoded["input_ids"])
             log_probs.append(logp)
 
@@ -82,14 +82,14 @@ class LMCritic:
         """
         assert preprocess_method == "gec" or preprocess_method == "bea19", "Unknown preprocessing method: {}"
 
-        sentence_tokenized = self.preprocessor.preprocess(sentence, preprocess_method == "bea19")
+        sentence_tokenized = self._preprocessor.preprocess(sentence, preprocess_method == "bea19")
 
-        perturbator = self.word_level_perturbator_refined if is_refined else self.word_level_perturbator_all
+        perturbator = self._word_level_perturbator_refined if is_refined else self._word_level_perturbator_all
 
         sent_perturbations_w, orig_sent = perturbator.get_local_neighbors(
             sentence_tokenized, max_n_samples=n_samples // 2
         )
-        sent_perturbations_c = self.char_level_perturbator.get_local_neighbors(orig_sent, max_n_samples=n_samples // 2)
+        sent_perturbations_c = self._char_level_perturbator.get_local_neighbors(orig_sent, max_n_samples=n_samples // 2)
 
         if verbose:
             print("#sent_perturbations (char-level)", len(sent_perturbations_c))
