@@ -11,7 +11,9 @@ def evaluate(sentence: str, batch_size: int = 64, is_refined: bool = True, use_g
         sentence, batch_size=batch_size, is_refined=is_refined, verbose=True, return_counter_example=True
     )
 
-    return is_good, logp, counter_ex
+    print(f"Sentence is good: {is_good}.")
+    print(f"Sentence's logp: {logp}.")
+    print(f"Counter examples: {counter_ex}")
 
 
 if __name__ == "__main__":
@@ -22,8 +24,5 @@ if __name__ == "__main__":
     args.add_argument("--refined", action="store_true", help="Perturbation method.")
     args = args.parse_args()
 
-    is_good, logp, counter_ex = evaluate(args.sent, args.bs, args.refined, args.use_gpu)
+    evaluate(args.sent, args.bs, args.refined, args.use_gpu)
 
-    print(f"Sentence is good: {is_good}.")
-    print(f"Sentence's logp: {logp}.")
-    print(f"Counter examples: {counter_ex}")

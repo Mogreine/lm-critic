@@ -96,17 +96,17 @@ class TextPostprocessor:
             toks = ['"' if t == "'" else t for t in toks]
         sent = " ".join(toks)
         #
-        sents = sent_tokenize(sent)
+        sentences = sent_tokenize(sent)
         final_sents = []
-        for _sent in sents:
-            _sent = cls.detokenizer.detokenize(_sent.split())
-            res = cls.handle_double_quote(_sent)
+        for sent in sentences:
+            sent = cls.detokenizer.detokenize(sent.split())
+            res = cls.handle_double_quote(sent)
             if res == -1:
                 print("unbalanced double quote")
-                print(_sent)
+                print(sent)
             else:
-                _sent = res
-            final_sents.append(_sent)
+                sent = res
+            final_sents.append(sent)
         sent = " ".join(final_sents)
         sent = cls.postprocess_space(sent)
         return sent

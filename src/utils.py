@@ -18,14 +18,14 @@ def seed_everything(seed: int):
 def get_all_edit_dist_one(word, filetype=1111, sub_restrict=None):
     """
     Allowable edit_dist_one perturbations:
-        1. Insert any lowercase characer at any position other than the start
+        1. Insert any lowercase character at any position other than the start
         2. Delete any character other than the first one
         3. Substitute any lowercase character for any other lowercase letter other than the start
         4. Swap adjacent characters
-    We also include the original word. Filetype determines which of the allowable perturbations to use.
+    Filetype determines which of the allowable perturbations to use.
     """
     insert, delete, substitute, swap = process_filetype(filetype)
-    # last_mod_pos is last thing you could insert before
+    # last_mod_pos is the last place you could insert before
     last_mod_pos = len(word)  # - 1
     ed1 = set()
     if len(word) <= 2 or word[:1].isupper() or word[:1].isnumeric():
@@ -36,8 +36,8 @@ def get_all_edit_dist_one(word, filetype=1111, sub_restrict=None):
             ed1.add(deletion)
         if swap and pos < last_mod_pos - 1:
             # swapping thing at pos with thing at pos + 1
-            swaped = word[:pos] + word[pos + 1] + word[pos] + word[pos + 2 :]
-            ed1.add(swaped)
+            swapped = word[:pos] + word[pos + 1] + word[pos] + word[pos + 2 :]
+            ed1.add(swapped)
         for letter in string.ascii_lowercase:  # +"'-": #no need to add '-, as we want to corrupt good to bad
             if insert:
                 # Insert right after pos - 1
