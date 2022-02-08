@@ -1,13 +1,13 @@
 # LM critic
 Implementation of LM critic for sentence evaluation.
 
-# 1. Dependencies
+# Dependencies
 To install all the dependencies run from the project root:
 ```
 pip install -r requirements.txt
 ```
 
-# 2. Usage
+# Usage
 The critic is defined in `src/critic.py`. In order to evaluate a sentence run:
 ```
 PYTHONPATH=. python src/evaluate_sentence.py -s $SENTENCE$ --use_gpu --refined 
@@ -18,7 +18,7 @@ where
 * `--refined` -- enables refine word-level perturbations (preferable method)
 * `--use_gpu` -- enables gpu usage for probabilities computation 
 
-# 3. Evaluation
+# Evaluation
 You can find the evaluation dataset at `data/eval_data.jsonl`. It is the same dataset which is used 
 for lm critic evaluation in the paper (contains sentences from GMEG-wiki, GMEG-yahoo and BEA19). 
 To run evaluation on the dataset:
