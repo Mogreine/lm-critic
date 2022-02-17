@@ -21,7 +21,7 @@ def load_bea19(data_path: str) -> Tuple[List[str], List[str]]:
         good_sents.append(obj["good"])
         bad_sents.append(obj["bad"])
 
-    return good_sents, bad_sents
+    return good_sents[:10], bad_sents[:10]
 
 
 def load_realec(data_path: str) -> Tuple[List[str], List[str]]:
@@ -66,7 +66,7 @@ def evaluate(
 if __name__ == "__main__":
     args = ArgumentParser()
     args.add_argument("--seed", type=int, default=1)
-    args.add_argument("--bs", type=int, default=64, help="Batch size fo probability calculation")
+    args.add_argument("--bs", type=int, default=64, help="Batch size for probability calculation")
     args.add_argument("--dataset", type=str, default="bea19", help="Dataset ot evaluate on. Must be bea19 or realec.")
     args.add_argument("--use_gpu", action="store_true")
     args.add_argument("--refined", action="store_true", help="Perturbation method")
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     assert args.dataset in ["bea19", "realec"], f"Unsupported dataset: {args.dataset}. Must be bea19 or realec."
 
-    seed_everything(1)
+    seed_everything(args.seed)
 
     bea19_data_path = os.path.join(ROOT_PATH, "data/eval_data.jsonl")
     realec_data_path = os.path.join(ROOT_PATH, "data/realec_style_eval.csv")
