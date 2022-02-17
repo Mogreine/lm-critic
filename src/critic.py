@@ -7,6 +7,7 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 from src.perturbations import WordLevelPerturbator, CharLevelPerturbator, WordLevelPerturbatorRefined
 from src.tokenizer import TextPreprocessor
+from src.utils import seed_everything
 
 
 class LMCritic:
@@ -81,6 +82,8 @@ class LMCritic:
                  a better sentence and its score.
         """
         assert preprocess_method == "gec" or preprocess_method == "bea19", "Unknown preprocessing method: {}"
+
+        # seed_everything(47)
 
         sentence_tokenized = self._preprocessor.preprocess(sentence, preprocess_method == "bea19")
 

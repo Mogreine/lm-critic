@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from random import sample
 
 from definitions import ROOT_PATH
-from src.utils import get_all_edit_dist_one
+from src.utils import get_all_edit_dist_one, seed_everything
 from src.tokenizer import TextPostprocessor
 
 
@@ -61,6 +61,7 @@ class WordLevelPerturbatorBase(ABC):
                 self._common_replaces_refine[tgt][src] = self._common_replaces[src][tgt]
 
     def get_local_neighbors(self, sentence_tokenized, max_n_samples=500):
+        # seed_everything(47)
         n_samples = min(len(sentence_tokenized) * 20, max_n_samples)
         original_sentence = " ".join(sentence_tokenized)
         original_sentence_detokenized = TextPostprocessor.detokenize_sent(original_sentence)
@@ -91,7 +92,7 @@ class WordLevelPerturbatorBase(ABC):
         sentence_tokenized = self._tokenize(sentence)
         if len(sentence_tokenized) > 0:
             insertable = list(range(len(sentence_tokenized)))
-            index = random.choice(insertable)
+            index = np.random.choice(insertable)
             plist = list(self._common_deletes.values())
             plist = [x / sum(plist) for x in plist]
 
@@ -116,11 +117,11 @@ class WordLevelPerturbatorBase(ABC):
                     return self._replace(sentence, redir=False)
                 return sentence
 
-            index = random.choice(verbs)
+            index = np.random.choice(verbs)
             word = sentence_tokenized[index]
             if not self._word_forms[word]:
                 return sentence
-            replacement = random.choice(self._word_forms[word])
+            replacement = np.random.choice(self._word_forms[word])
             sentence_tokenized[index] = replacement
 
         return " ".join(sentence_tokenized)
@@ -134,7 +135,7 @@ class WordLevelPerturbatorBase(ABC):
             deletable = self._filter_tokens_to_delete(toks)
             if not deletable:
                 return sentence
-            index = random.choice(deletable)
+            index = np.random.choice(deletable)
             del sentence_tokenized[index]
 
         return " ".join(sentence_tokenized)
@@ -153,7 +154,7 @@ class WordLevelPerturbatorBase(ABC):
                     return self._mod_word(sentence, redir=False)
                 return sentence
 
-            index = random.choice(replaceable)
+            index = np.random.choice(replaceable)
             word = sentence_tokenized[index]
             if not self._common_replaces_refine[word]:
                 return sentence
@@ -243,7 +244,7 @@ class CharLevelPerturbator:
             if type not in self._cache[word]:
                 continue
             if len(self._cache[word][type]) >= type_count[type]:
-                perturbations.update(set(sample(self._cache[word][type], type_count[type])))
+                perturbations.update(set(np.random.choice(self._cache[word][type], type_count[type])))
             else:
                 perturbations.update(self._cache[word][type])
 
@@ -274,7 +275,7 @@ class CharLevelPerturbator:
             return sent_perturbations
 
         for _ in range(self._max_iterations):
-            word_idx = sample(word_idxs, 1)[0]
+            word_idx = np.random.choice(word_idxs) # sample(word_idxs, 1)[0]
             words_cp = words[:]
             word_perturbations = list(self.__get_perturbations(words_cp[word_idx], n_samples=1))
             if len(word_perturbations) > 0:
